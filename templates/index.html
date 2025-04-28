@@ -1,0 +1,72 @@
+<!-- stereotype_quiz_app/templates/index.html -->
+{% extends "layout.html" %}
+
+{% block title %}User Information - Stereotype Quiz{% endblock %}
+
+{% block content %}
+    <h1>Stereotype Perception Survey</h1>
+    <p>Please provide some basic information to begin. Your anonymous responses will be used to create a dataset for research purposes.</p>
+
+    {# Display flashed messages (already in layout.html but good practice here too) #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul class="flashes">
+        {% for category, message in messages %}
+          <li class="flash {{ category }}">{{ message }}</li>
+        {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <form action="{{ url_for('index') }}" method="post">
+        <div class="form-group">
+            {# Make name required #}
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" placeholder="Enter your name" required value="{{ form_data.get('name', '') }}">
+        </div>
+
+        <div class="form-group">
+            {# Assuming this is for the first project, use 'user_state' #}
+            <label for="user_state">Your State/UT:</label>
+            <select id="user_state" name="user_state" required>
+                <option value="" disabled {% if not form_data.get('user_state') %}selected{% endif %}>-- Select your State/UT --</option>
+                {% if states == ['Error: Check Logs'] %}
+                 <option value="" disabled>Error loading states!</option>
+                {% else %}
+                 {% for state in states %}
+                    {# Preserve selection on error #}
+                    <option value="{{ state }}" {% if state == form_data.get('user_state') %}selected{% endif %}>{{ state }}</option>
+                 {% endfor %}
+                {% endif %}
+            </select>
+             {% if states == ['Error: Check Logs'] %}
+                <p class="error">Could not load the list of states. Please check application logs.</p>
+             {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="age">Age:</label>
+            {# Make age optional again if needed, or keep required #}
+            <input type="number" id="age" name="age" min="1" placeholder="Enter your age (optional)" value="{{ form_data.get('age', '') }}">
+        </div>
+
+        <div class="form-group">
+            {# Modified Sex selection #}
+            <label>Sex: <span class="required-indicator">*</span></label> {# Indicate required #}
+             {# Use form_data to re-select radio button on error #}
+             {% set selected_sex = form_data.get('sex') %}
+            <div>
+                 {# Add required to enforce selection within the group #}
+                <input type="radio" id="male" name="sex" value="Male" {% if selected_sex == 'Male' %}checked{% endif %} required>
+                <label for="male">Male</label>
+            </div>
+            <div>
+                <input type="radio" id="female" name="sex" value="Female" {% if selected_sex == 'Female' %}checked{% endif %} required>
+                <label for="female">Female</label>
+            </div>
+             {# Removed 'Other' and 'Prefer not to say' divs #}
+        </div>
+
+        <button type="submit">Start Quiz</button>
+    </form>
+{% endblock %}

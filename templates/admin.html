@@ -1,0 +1,76 @@
+<!-- stereotype_quiz_app/templates/admin.html -->
+{% extends "layout.html" %}
+
+{% block title %}Admin - View Results{% endblock %}
+
+{% block content %}
+<h1>Admin - View Results</h1>
+<p>Displaying raw results collected from the quiz, ordered by most recent first.</p>
+<p><strong>Security Warning:</strong> This page currently has no access control!</p>
+
+{# Display flashed messages if any #}
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <ul class="flashes">
+    {% for category, message in messages %}
+      <li class="flash {{ category }}">{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+
+{# *** ADDED/MODIFIED DOWNLOAD BUTTONS HERE *** #}
+<div style="margin: 20px 0; display: flex; gap: 15px; flex-wrap: wrap;">
+    {# Button for Processed Data #}
+    <div>
+        <a href="{{ url_for('download_processed_data') }}" class="button download-button" style="text-decoration: none; padding: 10px 15px; background-color: #28a745; color: white; border-radius: 5px; display: inline-block;">
+            Download Processed Data (CSV)
+        </a>
+        <p><small>Aggregated results including subsets.</small></p>
+    </div>
+
+    {# Button for Raw Data #}
+    <div>
+        <a href="{{ url_for('download_raw_data') }}" class="button download-button" style="text-decoration: none; padding: 10px 15px; background-color: #17a2b8; color: white; border-radius: 5px; display: inline-block;">
+            Download Raw Data (CSV)
+        </a>
+        <p><small>Direct dump of the 'results' table.</small></p>
+    </div>
+</div>
+{# *** END DOWNLOAD BUTTONS *** #}
+
+
+<h2>Raw Results Data Table</h2> {# Added heading #}
+{% if results %}
+<div class="table-container" style="overflow-x: auto;">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th><th>Timestamp</th><th>User Name</th><th>User State</th><th>User Age</th><th>User Sex</th><th>Category</th><th>Attribute Superset</th><th>Annotation</th><th>Offensiveness Rating</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in results %}
+            <tr>
+                <td>{{ row.id }}</td>
+                <td>{{ row.timestamp.strftime('%Y-%m-%d %H:%M:%S') if row.timestamp else 'N/A' }}</td>
+                <td>{{ row.user_name | default('N/A', true) }}</td>
+                <td>{{ row.user_state | default('N/A', true) }}</td>
+                <td>{{ row.user_age | default('N/A', true) }}</td>
+                <td>{{ row.user_sex | default('N/A', true) }}</td>
+                <td>{{ row.category | default('N/A', true) }}</td>
+                <td>{{ row.attribute_superset | default('N/A', true) }}</td>
+                <td>{{ row.annotation | default('N/A', true) }}</td>
+                <td>{{ row.offensiveness_rating if row.offensiveness_rating is not none else 'N/A' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<p>No raw results found in the database yet.</p>
+{% endif %}
+
+<p style="margin-top: 20px;"><a href="{{ url_for('index') }}">Back to Home Page</a></p>
+
+{% endblock %}

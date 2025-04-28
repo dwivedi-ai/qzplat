@@ -1,0 +1,5 @@
+Flask>=2.0 # Or your specific version
+mysql-connector-python>=8.0 # Or your specific version
+gunicorn>=20.0 # Add Gunicorn for the production server
+pandas>=1.3 # Or your specific version
+numpy>=1.20 # Or your specific version
