@@ -5,45 +5,41 @@ import csv
 import io
 import mysql.connector
 from mysql.connector import Error as MySQLError
+# Ensure get_flashed_messages is imported
 from flask import (Flask, render_template, request, redirect, url_for, g,
-                   flash, Response, send_file, get_flashed_messages) # Ensure get_flashed_messages is imported
+                   flash, Response, send_file, get_flashed_messages)
 import pandas as pd
 import numpy as np
 import traceback
-from urllib.parse import urlparse # Import the URL parser
+# We don't need urlparse if reading individual components
+# from urllib.parse import urlparse
 
 # --- Configuration ---
 CSV_FILE_PATH = os.path.join('data', 'stereotypes.csv')
 SCHEMA_FILE = 'schema_mysql.sql'
 
 # --- Configuration from Environment Variables ---
-# Reading the single DATABASE_URL provided by Railway's `${{ MySQL.MYSQL_URL }}`
+# Reading variables EXACTLY as Railway injects them (no underscores usually)
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'a_very_weak_default_secret_key_change_me_if_local')
-DATABASE_URL = os.environ.get('DATABASE_URL') # Read the single URL variable
 
-# --- Parse Database URL ---
-db_config = {}
-if DATABASE_URL:
+# Read individual components directly from Railway's injected variables
+MYSQL_HOST = os.environ.get('MYSQLHOST')       # Read MYSQLHOST
+MYSQL_USER = os.environ.get('MYSQLUSER')       # Read MYSQLUSER
+MYSQL_PASSWORD = os.environ.get('MYSQLPASSWORD') # Read MYSQLPASSWORD
+MYSQL_DB = os.environ.get('MYSQLDATABASE')     # Read MYSQLDATABASE
+
+# Read MYSQLPORT as string and convert safely
+db_port_str = os.environ.get('MYSQLPORT')
+MYSQL_PORT = None # Default to None if not set or invalid
+if db_port_str:
     try:
-        print(f"DEBUG: Parsing DATABASE_URL: {DATABASE_URL[:DATABASE_URL.find('//')+2]}...{DATABASE_URL[DATABASE_URL.rfind('@'):]}") # Print sanitized URL
-        parsed_url = urlparse(DATABASE_URL)
-        db_config['MYSQL_HOST'] = parsed_url.hostname
-        db_config['MYSQL_USER'] = parsed_url.username
-        db_config['MYSQL_PASSWORD'] = parsed_url.password
-        db_config['MYSQL_DB'] = parsed_url.path[1:]  # Remove leading '/' from path
-        db_config['MYSQL_PORT'] = parsed_url.port
-        print("DEBUG: Database URL parsed successfully.")
-        # Validate essential components
-        if not all([db_config['MYSQL_HOST'], db_config['MYSQL_USER'], db_config['MYSQL_DB']]):
-             print("CRITICAL ERROR: Parsed DATABASE_URL is missing essential components (host, user, or db name).")
-             db_config = None # Indicate failure
-    except Exception as e:
-        print(f"CRITICAL ERROR: Failed to parse DATABASE_URL: {e}")
-        db_config = None # Indicate failure
+        MYSQL_PORT = int(db_port_str)
+    except ValueError:
+        print(f"CRITICAL ERROR: Invalid value received for MYSQLPORT: '{db_port_str}'. Database connection will likely fail.")
 else:
-    print("CRITICAL ERROR: DATABASE_URL environment variable not set. Cannot configure database.")
-    db_config = None
+    print("CRITICAL ERROR: MYSQLPORT environment variable not found.")
+
 
 RESULTS_TABLE = 'results'
 
@@ -51,28 +47,40 @@ RESULTS_TABLE = 'results'
 app = Flask(__name__)
 app.config['SECRET_KEY'] = SECRET_KEY
 
-# Populate app.config ONLY if parsing was successful
-if db_config:
-    app.config.update(db_config)
+# Populate app.config ONLY if essential components were found
+if all([MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, MYSQL_PORT is not None]):
+    app.config['MYSQL_HOST'] = MYSQL_HOST
+    app.config['MYSQL_USER'] = MYSQL_USER
+    app.config['MYSQL_PASSWORD'] = MYSQL_PASSWORD
+    app.config['MYSQL_DB'] = MYSQL_DB
+    app.config['MYSQL_PORT'] = MYSQL_PORT # This will be an int if successful
+
     # Print config being used (helps debugging)
-    print("--- Application Configuration (Parsed from DATABASE_URL) ---")
+    print("--- Application Configuration (Reading Direct Railway Vars) ---")
     print(f"SECRET_KEY: {'Set' if SECRET_KEY != 'a_very_weak_default_secret_key_change_me_if_local' else 'Default (UNSAFE!)'}")
-    print(f"MYSQL_HOST: {app.config.get('MYSQL_HOST')}")
-    print(f"MYSQL_USER: {app.config.get('MYSQL_USER')}")
-    print(f"MYSQL_PASSWORD: {'Set' if app.config.get('MYSQL_PASSWORD') else 'Not Set'}")
-    print(f"MYSQL_DB: {app.config.get('MYSQL_DB')}")
-    print(f"MYSQL_PORT: {app.config.get('MYSQL_PORT')}")
+    print(f"MYSQL_HOST: {app.config.get('MYSQL_HOST')} (from MYSQLHOST env var)")
+    print(f"MYSQL_USER: {app.config.get('MYSQL_USER')} (from MYSQLUSER env var)")
+    print(f"MYSQL_PASSWORD: {'Set' if app.config.get('MYSQL_PASSWORD') else 'Not Set'} (from MYSQLPASSWORD env var)")
+    print(f"MYSQL_DB: {app.config.get('MYSQL_DB')} (from MYSQLDATABASE env var)")
+    print(f"MYSQL_PORT: {app.config.get('MYSQL_PORT')} (from MYSQLPORT env var)")
     print("-----------------------------------------------------------")
 else:
-    print("--- Application Configuration FAILED: Database not configured ---")
-    # Optionally, prevent app from starting fully? Or let routes fail gracefully?
-    # For now, routes will fail when trying to get DB connection.
+    print("--- Application Configuration FAILED: Missing essential DB environment variables ---")
+    # Set a flag or handle this state if needed, otherwise get_db/init_db will fail
+    app.config['DB_CONFIGURED'] = False
+
 
 # --- Database Functions ---
 def get_db():
     """Opens a new MySQL database connection and cursor if none exist for the current request context."""
     if 'db' not in g:
         # Check if DB config is available in app.config first
+        if not app.config.get('DB_CONFIGURED', True): # Check if config failed earlier
+             print("ERROR get_db: Database configuration failed during startup.")
+             flash('Database configuration error. Please contact admin.', 'error')
+             g.db = None; g.cursor = None
+             return None
+        # Check again specifically for needed keys (belt and suspenders)
         if not all(k in app.config for k in ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DB', 'MYSQL_PORT']):
              print("ERROR get_db: Database configuration missing in app.config.")
              flash('Database configuration error. Please contact admin.', 'error')
@@ -95,7 +103,7 @@ def get_db():
 
 @app.teardown_appcontext
 def close_db(error):
-    """Closes the database cursor and connection at the end of the request."""
+    # (Keep close_db as before)
     cursor = g.pop('cursor', None); db = g.pop('db', None)
     if cursor:
         try: cursor.close()
@@ -109,10 +117,11 @@ def close_db(error):
 def init_db():
     """Connects to MySQL, creates the database IF NOT EXISTS, and creates the table IF NOT EXISTS using schema_mysql.sql."""
     # Check if DB config is available
-    if not all(k in app.config for k in ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DB', 'MYSQL_PORT']):
+    if not app.config.get('DB_CONFIGURED', True) or not all(k in app.config for k in ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DB', 'MYSQL_PORT']):
          print("CRITICAL init_db ERROR: Database configuration missing. Skipping initialization.")
          return
 
+    # (Rest of init_db logic remains the same as it reads from app.config)
     temp_conn = None; temp_cursor = None
     db_host = app.config['MYSQL_HOST']; db_user = app.config['MYSQL_USER']
     db_password = app.config['MYSQL_PASSWORD']; db_port = app.config['MYSQL_PORT']
@@ -125,15 +134,11 @@ def init_db():
         )
         temp_cursor = temp_conn.cursor()
         print(f"init_db: Connected to MySQL server. Checking/creating database '{db_name}'...")
-        # NOTE: Railway typically creates the database specified in the connection string already.
-        # This CREATE DATABASE IF NOT EXISTS might be redundant or even fail depending on user permissions.
-        # Consider removing it if Railway guarantees the DB exists. For safety, we keep it for now.
         try:
             temp_cursor.execute(f"CREATE DATABASE IF NOT EXISTS `{db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
             temp_conn.commit(); print(f"init_db: Database '{db_name}' checked/created.")
         except MySQLError as err:
             print(f"Warning init_db: Could not CREATE DATABASE (might be normal/permissions issue): {err}.")
-            # Continue assuming DB exists or USE will fail
         try:
             temp_cursor.execute(f"USE `{db_name}`"); print(f"init_db: Switched to database '{db_name}'.")
         except MySQLError as err: print(f"CRITICAL init_db ERROR: Failed switch to DB '{db_name}': {err}."); return
@@ -163,10 +168,9 @@ def init_db():
         if temp_conn and temp_conn.is_connected(): temp_conn.close()
         print("--- init_db: Finished DB Initialization Check ---")
 
-
 # --- Initialize DB on Application Start ---
 # Only run init_db if database was configured successfully
-if app.config.get('MYSQL_HOST'): # Check if host was set (implies successful parsing)
+if app.config.get('MYSQL_HOST'): # Check if host was set (implies successful reading)
     print(">>> Application starting: Performing database initialization check...")
     with app.app_context(): init_db()
     print(">>> Application starting: Database initialization check complete.")
@@ -178,7 +182,7 @@ else:
 # (Keep load_stereotype_data exactly as before)
 def load_stereotype_data(relative_filepath=CSV_FILE_PATH):
     stereotype_data = []; full_filepath = os.path.join(app.root_path, relative_filepath)
-    print(f"--- load_stereotype_data: Loading from: {full_filepath} ---")
+    # print(f"--- load_stereotype_data: Loading from: {full_filepath} ---") # Less verbose
     try:
         if not os.path.exists(full_filepath): raise FileNotFoundError(f"Not found: {full_filepath}")
         with open(full_filepath, mode='r', encoding='utf-8-sig') as infile:
@@ -194,14 +198,14 @@ def load_stereotype_data(relative_filepath=CSV_FILE_PATH):
                     subsets = sorted([s.strip() for s in subsets_str.split(',') if s.strip()])
                     stereotype_data.append({'state': state,'category': category,'superset': superset,'subsets': subsets})
                 except Exception as row_err: print(f"Err row {i+2}: {row_err}"); error_count += 1; continue
-        if not stereotype_data and row_count > 0: print(f"Warn: Loaded 0 entries from {row_count} rows.")
-        elif error_count > 0: print(f"Loaded {len(stereotype_data)} entries ({error_count} rows skipped).")
-        else: print(f"Loaded {len(stereotype_data)} entries.")
+        # if not stereotype_data and row_count > 0: print(f"Warn: Loaded 0 entries from {row_count} rows.") # Less verbose
+        # elif error_count > 0: print(f"Loaded {len(stereotype_data)} entries ({error_count} rows skipped).")
+        # else: print(f"Loaded {len(stereotype_data)} entries.")
         return stereotype_data
     except FileNotFoundError as e: print(f"FATAL: Stereotype file not found: {e}"); return []
     except ValueError as e: print(f"FATAL: CSV format error: {e}"); return []
     except Exception as e: print(f"FATAL loading stereotypes: {e}\n{traceback.format_exc()}"); return []
-    finally: print("--- load_stereotype_data: Finished ---")
+    # finally: print("--- load_stereotype_data: Finished ---") # Less verbose
 
 
 # --- Load Data & States ---
@@ -213,33 +217,34 @@ if not ALL_STEREOTYPE_DATA or not INDIAN_STATES:
     INDIAN_STATES = ["Error: State data unavailable"]
 else: print(f">>> States available: {len(INDIAN_STATES)}")
 
+
 # --- Data Processing Logic ---
-# (Keep calculate_mean_offensiveness and generate_aggregated_data exactly as before, they use app.config)
+# (Keep calculate_mean_offensiveness and generate_aggregated_data exactly as before)
 def calculate_mean_offensiveness(series):
     valid_ratings = series[series >= 0]; return valid_ratings.mean() if not valid_ratings.empty else np.nan
 def generate_aggregated_data():
-    print("--- [Processing] Starting data aggregation ---"); db_conn_proc = None; aggregated_df = None
+    # print("--- [Processing] Starting data aggregation ---") # Less verbose
+    db_conn_proc = None; aggregated_df = None
     try:
-        # Add check for config before connecting
         if not all(k in app.config for k in ['MYSQL_HOST', 'MYSQL_USER', 'MYSQL_PASSWORD', 'MYSQL_DB', 'MYSQL_PORT']):
             raise ValueError("Processing Error: Database configuration not available.")
-        print("[Processing] Connecting to DB..."); db_conn_proc = mysql.connector.connect(
+        # print("[Processing] Connecting to DB...") # Less verbose
+        db_conn_proc = mysql.connector.connect(
             host=app.config['MYSQL_HOST'], user=app.config['MYSQL_USER'], password=app.config['MYSQL_PASSWORD'],
             database=app.config['MYSQL_DB'], port=app.config['MYSQL_PORT'], connection_timeout=10)
         if not db_conn_proc.is_connected(): raise MySQLError("Processing: Failed connection.")
-        print(f"[Processing] Fetching from {RESULTS_TABLE}..."); results_df = pd.read_sql_query(f"SELECT * FROM {RESULTS_TABLE}", db_conn_proc)
-        print(f"[Processing] Loaded {len(results_df)} results.");
-        if results_df.empty: print("[Processing] Table empty."); return pd.DataFrame()
+        results_df = pd.read_sql_query(f"SELECT * FROM {RESULTS_TABLE}", db_conn_proc)
+        # print(f"[Processing] Loaded {len(results_df)} results."); # Less verbose
+        if results_df.empty: return pd.DataFrame()
         results_df['Stereotype_State'] = results_df['user_state']
         stereotypes_path = os.path.join(app.root_path, CSV_FILE_PATH)
         if not os.path.exists(stereotypes_path): raise FileNotFoundError(f"Processing: Defs not found: {stereotypes_path}")
-        print(f"[Processing] Loading definitions: {stereotypes_path}"); stereotypes_df = pd.read_csv(stereotypes_path, encoding='utf-8-sig')
+        stereotypes_df = pd.read_csv(stereotypes_path, encoding='utf-8-sig')
         required_def_cols = ['State', 'Category', 'Superset', 'Subsets']
         if not all(col in stereotypes_df.columns for col in required_def_cols): raise ValueError("Processing: Defs CSV missing cols.")
         stereotypes_df['Subsets_List'] = stereotypes_df['Subsets'].fillna('').astype(str).apply(lambda x: sorted([s.strip() for s in x.split(',') if s.strip()]))
-        # print(f"[Processing] Loaded {len(stereotypes_df)} definitions.") # Less verbose
         subset_lookup = stereotypes_df.set_index(['State', 'Category', 'Superset'])['Subsets_List'].to_dict()
-        print("[Processing] Expanding annotations..."); expanded_rows = []; processing_errors = 0
+        expanded_rows = []; processing_errors = 0
         for index, result_row in results_df.iterrows():
             state = result_row.get('Stereotype_State'); category = result_row.get('category'); superset = result_row.get('attribute_superset')
             annotation = result_row.get('annotation'); rating_val = result_row.get('offensiveness_rating'); rating = int(rating_val) if pd.notna(rating_val) else -1
@@ -247,27 +252,28 @@ def generate_aggregated_data():
             expanded_rows.append({'Stereotype_State': state, 'Category': category, 'Attribute': superset, 'annotation': annotation, 'offensiveness_rating': rating})
             subsets_list = subset_lookup.get((state, category, superset), [])
             for subset in subsets_list: expanded_rows.append({'Stereotype_State': state, 'Category': category, 'Attribute': subset, 'annotation': annotation, 'offensiveness_rating': rating})
-        if processing_errors > 0: print(f"[Processing] Note: Skipped {processing_errors} rows.")
-        if not expanded_rows: print("[Processing] No rows after expansion."); return pd.DataFrame()
-        expanded_annotations_df = pd.DataFrame(expanded_rows); # print(f"[Processing] Expanded to {len(expanded_annotations_df)} rows.") # Less verbose
-        print("[Processing] Aggregating..."); grouped = expanded_annotations_df.groupby(['Stereotype_State', 'Category', 'Attribute'])
+        # if processing_errors > 0: print(f"[Processing] Note: Skipped {processing_errors} rows.") # Less verbose
+        if not expanded_rows: return pd.DataFrame()
+        expanded_annotations_df = pd.DataFrame(expanded_rows);
+        grouped = expanded_annotations_df.groupby(['Stereotype_State', 'Category', 'Attribute'])
         aggregated_data = grouped.agg(
             Stereotype_Votes=('annotation', lambda x: (x == 'Stereotype').sum()), Not_Stereotype_Votes=('annotation', lambda x: (x == 'Not a Stereotype').sum()),
             Not_Sure_Votes=('annotation', lambda x: (x == 'Not sure').sum()), Average_Offensiveness=('offensiveness_rating', calculate_mean_offensiveness)).reset_index()
         aggregated_data['Average_Offensiveness'] = aggregated_data['Average_Offensiveness'].round(2)
-        print(f"[Processing] Aggregation complete ({len(aggregated_data)} rows)."); print("--- [Processing] Finished successfully ---"); aggregated_df = aggregated_data
+        # print(f"[Processing] Aggregation complete ({len(aggregated_data)} rows)."); # Less verbose
+        aggregated_df = aggregated_data
     except FileNotFoundError as e: print(f"ERROR [Proc]: File not found: {e}"); flash(f"Error: Data file not found.", "error"); aggregated_df = None
     except (MySQLError, pd.errors.DatabaseError) as e: print(f"ERROR [Proc]: DB error: {e}"); flash(f"Error: Database issue.", "error"); aggregated_df = None
     except KeyError as e: print(f"ERROR [Proc]: Missing col: {e}"); flash(f"Error: Data mismatch.", "error"); aggregated_df = None
-    except ValueError as e: print(f"ERROR [Proc]: {e}"); flash(f"Error: {e}", "error"); aggregated_df = None # Catch config error here too
+    except ValueError as e: print(f"ERROR [Proc]: {e}"); flash(f"Error: {e}", "error"); aggregated_df = None
     except Exception as e: print(f"UNEXPECTED ERROR [Proc]:\n{traceback.format_exc()}"); flash(f"Error: Unexpected processing error.", "error"); aggregated_df = None
     finally:
-        if db_conn_proc and db_conn_proc.is_connected(): db_conn_proc.close(); # print("[Processing] Closed DB connection.") # Less verbose
+        if db_conn_proc and db_conn_proc.is_connected(): db_conn_proc.close()
     return aggregated_df
 
 
 # --- Flask Routes ---
-# (Keep index, quiz, submit, thank_you, admin routes as before, they use get_db which checks config)
+# (Keep index, quiz, submit, thank_you, admin routes exactly as before)
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -283,6 +289,11 @@ def index():
         if errors: return render_template('index.html', states=INDIAN_STATES, form_data=request.form)
         user_info = {'name': user_name, 'state': user_state, 'age': user_age, 'sex': user_sex}
         return redirect(url_for('quiz', **user_info))
+    # Check if DB configured before rendering potentially problematic form
+    if not app.config.get('DB_CONFIGURED', True):
+         flash("Application database is not configured. Please contact administrator.", "error")
+         # Render a simple error page or just the message?
+         # return "Database configuration error", 500
     return render_template('index.html', states=INDIAN_STATES, form_data={})
 
 @app.route('/quiz')
@@ -368,13 +379,12 @@ def admin_view():
     if not cursor: flash("DB connection failed.", "error"); return redirect(url_for('index'))
     results_data = []
     try:
-        # Assuming timestamp column exists and is TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         query = f"SELECT * FROM {RESULTS_TABLE} ORDER BY timestamp DESC"
         cursor.execute(query)
         results_data = cursor.fetchall()
     except MySQLError as err:
         print(f"Admin DB Error: {err}")
-        flash(f'Error fetching results: {err}', 'error') # Simplified fallback
+        flash(f'Error fetching results: {err}', 'error')
     except Exception as e: print(f"Admin Unexpected Error: {e}\n{traceback.format_exc()}"); flash('Unexpected error.', 'error')
     return render_template('admin.html', results=results_data)
 
