@@ -17,7 +17,7 @@ load_dotenv()
 # Path for CSV (relative to app.py) - Make sure this is correct in your project structure
 CSV_FILE_PATH = os.path.join('data', 'stereotypes.csv')
 # Path for MySQL Schema file (relative to app.py)
-SCHEMA_FILE = 'schema_mysql.sql'
+SCHEMA_FILE = 'schema.sql'
 
 # Flask Secret Key (Load from env var, generate a strong random one for production)
 SECRET_KEY = os.environ.get('SECRET_KEY', 'default-fallback-secret-key-CHANGE-ME')
