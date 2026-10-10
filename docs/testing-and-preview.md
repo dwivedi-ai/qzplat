@@ -70,3 +70,65 @@ docker stop qzsql-survey-test
 Public hosting has not been configured for this update. Railway is excluded as a
 deployment destination. The local preview is not a public deployment. A future
 public deployment needs a chosen host and working production database settings.
+
+## Final end-to-end check — 2026-10-11
+
+Application revision tested: 9355e36. Tested using the actual Gunicorn app:app
+entry point, Python 3.10.20, and a fresh MySQL 8.4 container on localhost:33080.
+The ordinary localhost:5000 preview and the research database were not modified.
+
+Results:
+
+- All seven integration/description tests passed, including first-start schema
+  creation, 37 state/UT pages, 762 group submissions, exports, aggregation,
+  registration validation, and database failure handling.
+- A real Chrome journey began at registration and completed Maharashtra on
+  desktop, Goa on mobile, and a native-form submission with JavaScript disabled.
+  It exercised all three annotations, all six ratings, required-answer/rating
+  checks, backward navigation, clearing an old rating, review/edit, incomplete-edit
+  revalidation, help/Escape/focus restoration, and the thank-you response.
+- All 62 browser responses matched the exact stored MySQL rows and raw CSV.
+  The 146 attributes in the processed CSV had independently checked vote counts
+  and mean offensiveness ratings. CSV columns and saved annotation values were
+  unchanged.
+- No browser JavaScript exceptions were observed. Mobile checks included 390 px
+  and a 320 px fallback with no horizontal overflow.
+- Every marked test response was deleted. The disposable database contained zero
+  remaining rows before its container was removed.
+
+The browser regression check is now retained in tests/e2e_survey.mjs, with database
+and export verification/cleanup in tests/verify_e2e.py. They only target localhost.
+The verifier deletes exact recorded participant markers in a finally block.
+
+To repeat, start a separate MySQL container and run the app with its credentials;
+never aim the server at the research database. Chrome must run with remote debugging
+on localhost:9222, and Node 22+ is required for the browser check. After running the
+integration suite against the fresh database, run:
+
+```sh
+QZSQL_E2E_BASE_URL=http://127.0.0.1:5001 \
+QZSQL_E2E_ARTIFACT_DIR=/tmp/qzsql-final-e2e \
+node tests/e2e_survey.mjs
+
+python tests/verify_e2e.py --port 33080 --artifacts /tmp/qzsql-final-e2e
+```
+
+Stop that test server and remove its container afterward, including if a test
+fails. The test artifacts contain synthetic responses and screenshots only.
+
+### Deployment preparation still required
+
+The survey's functional path passed; a public deployment was not performed.
+Choose the hosting destination, supply a working production MySQL connection,
+and set a strong SECRET_KEY. Use Gunicorn with app:app from the repository root
+and bind to the host's assigned port, for example:
+
+```sh
+gunicorn --bind "0.0.0.0:${PORT:-8000}" app:app
+```
+
+The admin page and both download routes are currently unauthenticated. The browser
+check confirmed the exports can be downloaded without credentials. Protect these
+three routes through application authentication or hosting access controls before
+public launch, because the raw export includes participant names and demographics.
+Neither the admin-access policy nor production secrets were changed by this test.
