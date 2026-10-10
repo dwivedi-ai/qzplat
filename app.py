@@ -110,9 +110,11 @@ def init_db_table():
             try:
                 with open(schema_path, mode='r', encoding='utf-8') as f: sql_script = f.read()
                 app.logger.info(f"Executing SQL script from {schema_path}...")
-                for result in cursor_init.execute(sql_script, multi=True):
-                     app.logger.debug(f"Schema exec result: Stmt='{result.statement}', Rows={result.rowcount}")
-                     if result.with_rows: result.fetchall()
+                # Execute the simple schema statements individually; recent connector
+                # versions no longer accept the multi=True argument.
+                for statement in sql_script.split(";"):
+                    if statement.strip():
+                        cursor_init.execute(statement)
                 db_conn_init.commit()
                 app.logger.info(f"Table '{RESULTS_TABLE}' created successfully.")
                 return True

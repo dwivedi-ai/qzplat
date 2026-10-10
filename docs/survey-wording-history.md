@@ -72,3 +72,10 @@ interpreted “stereotype.”
   database substitute. All 22 rows preserved the expected database fields and -1
   sentinel. The live database was not contacted or tested.
 - Checked the JavaScript-disabled form fallback, JavaScript syntax, and whitespace.
+
+### Full runtime validation on 2026-10-10
+
+The later full application test used an isolated MySQL 8.4 database. Integration
+and real-browser submissions, CSV exports, and aggregation passed. All generated
+response rows were deleted and the preview database was confirmed empty. See
+[testing and preview](testing-and-preview.md) for scope, commands, and hosting status.
