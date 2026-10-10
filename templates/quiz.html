@@ -1,6 +1,7 @@
 {% extends "layout.html" %}
 {% block title %}Stereotype Perception Survey — {{ user_info.state }}{% endblock %}
 {% block content %}
+    <div id="survey-intro">
     <header class="survey-header">
         <p class="eyebrow">Stereotype perception survey</p>
         <h1>Ideas associated with {{ user_info.state }}</h1>
@@ -27,6 +28,8 @@
     </section>
     {% endif %}
 
+    </div>
+
     <form action="{{ url_for('submit') }}" method="post" id="quiz-form">
         <input type="hidden" name="user_name" value="{{ user_info.name }}">
         <input type="hidden" name="user_state" value="{{ user_info.state }}">
@@ -38,41 +41,43 @@
             <p><a href="{{ url_for('index') }}">Return to start</a></p>
         {% else %}
             <div id="survey-progress" class="survey-progress" hidden>
-                <p id="progress-label" role="status" aria-live="polite"></p>
+                <div class="survey-topbar">
+                    <span class="survey-state">{{ user_info.state }}</span>
+                    <p id="progress-label" role="status" aria-live="polite"></p>
+                    <button type="button" id="survey-help" class="text-button">How to answer</button>
+                </div>
                 <progress id="progress-bar" max="{{ quiz_items|length }}" value="0" aria-labelledby="progress-label"></progress>
             </div>
             {% for item in quiz_items %}
             {% set index = loop.index0 %}
             <section class="quiz-item" id="item-{{ index }}" aria-labelledby="title-{{ index }}">
-                <p class="eyebrow">{{ item.category }} · Group {{ loop.index }} of {{ quiz_items|length }}</p>
+                <p class="eyebrow">{{ item.category }}</p>
                 <h2 id="title-{{ index }}" tabindex="-1">{{ item.superset }}</h2>
                 <div class="group-explanation" id="explanation-{{ index }}">
-                    <p class="eyebrow">Understanding this group</p>
                     <p>{{ item.description }}</p>
                 </div>
                 <input type="hidden" name="superset_{{ index }}" value="{{ item.superset }}">
                 <input type="hidden" name="category_{{ index }}" value="{{ item.category }}">
                 {% if item.subsets %}
                 <div class="subsets-list" id="context-{{ index }}">
-                    <p><strong>Associated terms for this group</strong></p>
+                    <p class="context-label">This group also includes</p>
                     <ul>{% for subset in item.subsets %}<li>{{ subset }}</li>{% endfor %}</ul>
-                    <p class="muted">Consider the group overall when answering.</p>
                 </div>
                 {% endif %}
                 <fieldset class="annotation-options" data-question-index="{{ index }}" aria-describedby="explanation-{{ index }}{% if item.subsets %} context-{{ index }}{% endif %}">
-                    <legend>Do you recognise “{{ item.superset }}” as a stereotype associated with people from {{ user_info.state }}?</legend>
-                    <p class="question-hint">Choose one answer. Recognising it does not mean you believe it is true.</p>
+                    <legend>Do you recognise this as a stereotype about people from {{ user_info.state }}?</legend>
+                    <p class="question-hint">Choose one answer for the whole group. Recognising it does not mean you agree.</p>
                     <label class="answer-card" for="anno_s_{{ index }}">
                         <input type="radio" id="anno_s_{{ index }}" name="annotation_{{ index }}" value="Stereotype" required>
-                        <span><strong>Yes, I recognise this stereotype</strong><span class="answer-description">I recognise this as a generalisation about people from my state.</span></span>
+                        <span><strong>Yes</strong><span class="answer-description">I recognise it.</span></span>
                     </label>
                     <label class="answer-card" for="anno_ns_{{ index }}">
                         <input type="radio" id="anno_ns_{{ index }}" name="annotation_{{ index }}" value="Not a Stereotype">
-                        <span><strong>No, I don’t recognise this stereotype</strong><span class="answer-description">I do not recognise this as a generalisation about people from my state.</span></span>
+                        <span><strong>No</strong><span class="answer-description">I don’t recognise it.</span></span>
                     </label>
                     <label class="answer-card" for="anno_unsure_{{ index }}">
                         <input type="radio" id="anno_unsure_{{ index }}" name="annotation_{{ index }}" value="Not sure">
-                        <span><strong>Not sure</strong><span class="answer-description">I cannot confidently decide for this group.</span></span>
+                        <span><strong>Not sure</strong><span class="answer-description">I cannot confidently decide.</span></span>
                     </label>
                 </fieldset>
                 <div class="offensiveness-rating-container" id="rating_container_{{ index }}">
@@ -105,5 +110,12 @@
             <button type="submit" id="submit-survey" class="primary-button">Submit responses</button>
         {% endif %}
     </form>
+    <dialog id="answer-help" aria-labelledby="help-title">
+        <div class="help-heading">
+            <h2 id="help-title">How to answer</h2>
+            <button type="button" id="close-help" class="secondary-button">Close</button>
+        </div>
+        <div id="help-content"></div>
+    </dialog>
     <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
 {% endblock %}

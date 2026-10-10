@@ -14,11 +14,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressBar = document.getElementById('progress-bar');
     const review = document.getElementById('review-panel');
     const reviewList = document.getElementById('review-list');
+    const intro = document.getElementById('survey-intro');
+    const help = document.getElementById('answer-help');
+    const helpContent = document.getElementById('help-content');
+    document.querySelectorAll('#survey-guide > p').forEach(paragraph => {
+        helpContent.append(paragraph.cloneNode(true));
+    });
+    document.getElementById('survey-help').addEventListener('click', () => help.showModal());
+    document.getElementById('close-help').addEventListener('click', () => help.close());
     const labels = {
         'Stereotype': 'Yes, I recognise this stereotype',
         'Not a Stereotype': 'No, I don’t recognise this stereotype',
         'Not sure': 'Not sure'
     };
+    // Keep Submit beside navigation in the guided flow; its original position
+    // remains available when JavaScript is disabled.
+    navigation.append(submit);
     let current = 0;
     let editing = false;
 
@@ -47,7 +58,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (error.textContent && focus) {
             const target = !answer ? item.querySelector('.annotation-options input') :
                 item.querySelector('.rating-options input');
-            target.focus();
+            target.scrollIntoView({ block: 'center' });
+            target.focus({ preventScroll: true });
         }
         return !error.textContent;
     }
@@ -56,8 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const completed = items.filter(item => selectedAnswer(item) &&
             (selectedAnswer(item).value !== 'Stereotype' || selectedRating(item))).length;
         progressLabel.textContent = current === items.length ?
-            `Review · ${completed} of ${items.length} groups answered` :
-            `Group ${current + 1} of ${items.length} · ${completed} answered`;
+            `Review answers · ${completed}/${items.length}` :
+            `${current + 1} of ${items.length}`;
         progressBar.value = completed;
     }
 
@@ -99,15 +111,23 @@ document.addEventListener('DOMContentLoaded', () => {
             index === items.length - 1 ? 'Review answers' : 'Next';
         if (reviewing) buildReview();
         updateProgress();
-        if (focus) (reviewing ? document.getElementById('review-title') :
-            items[index].querySelector('h2')).focus();
+        if (focus) {
+            const heading = reviewing ? document.getElementById('review-title') : items[index].querySelector('h2');
+            heading.focus({ preventScroll: true });
+            form.scrollIntoView({ block: 'start' });
+        }
     }
 
     items.forEach(item => {
         item.querySelector('.rating-fallback').hidden = true;
         syncRating(item);
         item.addEventListener('change', event => {
-            if (event.target.closest('.annotation-options')) syncRating(item);
+            if (event.target.closest('.annotation-options')) {
+                syncRating(item);
+                if (event.target.value === 'Stereotype') {
+                    item.querySelector('.offensiveness-rating-container').scrollIntoView({ block: 'nearest' });
+                }
+            }
             if (!errorFor(item).hidden) validate(item, false);
             updateProgress();
         });
@@ -120,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
     begin.hidden = false;
     begin.addEventListener('click', () => {
         practice.hidden = true;
-        document.getElementById('survey-guide').open = false;
+        intro.hidden = true;
         form.hidden = false;
         navigation.hidden = false;
         progress.hidden = false;

@@ -109,3 +109,39 @@ Coverage checks and the full Flask/MySQL integration suite passed with the new
 explanations. Original definitions and schema were also checked to be unchanged.
 Any collection using this wording should record its start date and commit,
 and compare it with earlier wording when interpreting continuation data.
+
+## Voting layout update: prepared 2026-10-11
+
+This update changes presentation and short interface prompts. The research
+labels, display-description CSV, associated terms, response mapping, rating scale,
+submission fields, and exports are unchanged.
+
+The welcome and practice content now appear only before the guided survey.
+During voting, a compact bar shows the state, position, and a How to answer button.
+The instructions remain available in a keyboard-accessible dialog. Each screen
+presents the group title, unchanged explanation, visible associated terms, the
+recognition question, and three equally styled answers in that order.
+
+The question is now “Do you recognise this as a stereotype about people from
+[state]?” Answer cards show Yes / I recognise it, No / I don’t recognise it, and
+Not sure / I cannot confidently decide. The shorter supporting text retains the
+recognition task and all three original saved annotation values. The reminder
+explains that recognition does not imply agreement and asks for one group answer.
+
+Colour indicates selection consistently across all three options; Yes and No
+are not assigned success or error colours. The numeric offensiveness question
+appears after Yes, with the same original wording, values, and endpoints. The
+browser brings that follow-up into view when needed. Mobile navigation stays at
+the bottom with content padding so the page can scroll clear of the controls.
+Review, editing, native radio keyboard behaviour, and the no-JavaScript form
+fallback remain available.
+
+Implementation followed the GOV.UK Design System question-page and radio patterns:
+https://design-system.service.gov.uk/patterns/question-pages/
+https://design-system.service.gov.uk/components/radios/
+
+Seven coverage/integration tests passed. Chrome checks covered mobile/desktop
+layout, the help dialog and Escape/focus restoration, all answer/rating/navigation
+paths, review/edit, a real submission, and the no-JavaScript fallback. Synthetic
+response rows were deleted. These checks verify functionality; participant
+comprehension should still be assessed in a small usability pilot.
