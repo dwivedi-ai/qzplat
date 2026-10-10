@@ -38,6 +38,19 @@ button.primary-button:hover, button[type="submit"]:hover { background: #124f55; 
 .form-group { margin: 0 0 24px; }
 .form-group label { font-weight: 600; }
 .form-group input[type="text"], .form-group input[type="number"], select { display: block; width: 100%; padding: 12px; border: 1px solid #aebbbf; border-radius: 6px; margin-top: 8px; }
+select {
+    appearance: none;
+    background-color: white;
+    color: var(--ink);
+    cursor: pointer;
+    padding-right: 44px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20'%3E%3Cpath d='m5 7 5 5 5-5' fill='none' stroke='%2317646b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+}
+select:hover { border-color: var(--accent); }
+select:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+select option { background: white; color: var(--ink); }
 .form-group > div { margin-top: 8px; }
 input[type="radio"] { accent-color: var(--accent); }
 .instructions { padding: 20px; margin: 24px 0; background: #f5f8f8; border-radius: 8px; }
