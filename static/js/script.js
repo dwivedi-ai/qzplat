@@ -1,122 +1,160 @@
-// stereotype_quiz_app/static/js/script.js
+document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('quiz-form');
+    const items = Array.from(document.querySelectorAll('.quiz-item'));
+    if (!form || !items.length) return;
 
-// Wait for the HTML document to be fully loaded before running the script
-document.addEventListener('DOMContentLoaded', function() {
+    const practice = document.getElementById('practice');
+    const begin = document.getElementById('begin-survey');
+    const navigation = document.getElementById('survey-navigation');
+    const previous = document.getElementById('previous-question');
+    const next = document.getElementById('next-question');
+    const submit = document.getElementById('submit-survey');
+    const progress = document.getElementById('survey-progress');
+    const progressLabel = document.getElementById('progress-label');
+    const progressBar = document.getElementById('progress-bar');
+    const review = document.getElementById('review-panel');
+    const reviewList = document.getElementById('review-list');
+    const labels = {
+        'Stereotype': 'Yes, I recognise this stereotype',
+        'Not a Stereotype': 'No, I don’t recognise this stereotype',
+        'Not sure': 'Not sure'
+    };
+    let current = 0;
+    let editing = false;
 
-    // --- Toggle Subset Visibility ---
-    const toggleButtons = document.querySelectorAll('.toggle-subsets');
+    const selectedAnswer = item => item.querySelector('.annotation-options input:checked');
+    const selectedRating = item => item.querySelector('.rating-options input:checked');
+    const errorFor = item => item.querySelector('.question-error');
 
-    toggleButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const targetId = this.getAttribute('data-target');
-            const targetElement = document.getElementById(targetId);
-
-            if (targetElement) {
-                if (targetElement.style.display === 'none' || targetElement.style.display === '') {
-                    targetElement.style.display = 'block'; // Show the subsets
-                    this.textContent = 'Hide Details'; // Change button text
-                } else {
-                    targetElement.style.display = 'none'; // Hide the subsets
-                    this.textContent = 'Show Details'; // Change button text back
-                }
-            } else {
-                console.error('Could not find subset target element with ID:', targetId);
-            }
-        });
-    });
-
-    // --- Show/Hide Offensiveness Rating Based on Annotation ---
-    const annotationFieldsets = document.querySelectorAll('.annotation-options');
-
-    annotationFieldsets.forEach(fieldset => {
-        // Listen for changes within the fieldset (radio button selection)
-        fieldset.addEventListener('change', function(event) {
-            // Check if the changed element is a radio button and is checked
-            if (event.target.type === 'radio' && event.target.checked) {
-                const selectedValue = event.target.value;
-                const questionIndex = this.getAttribute('data-question-index'); // Get index from fieldset
-                const ratingContainer = document.getElementById(`rating_container_${questionIndex}`);
-                const ratingRadios = ratingContainer ? ratingContainer.querySelectorAll('input[type="radio"]') : [];
-
-                if (ratingContainer) {
-                    if (selectedValue === 'Stereotype') {
-                        ratingContainer.style.display = 'block'; // Show the rating section
-                        // Make the rating radios required *only when visible*
-                        ratingRadios.forEach(radio => radio.required = true);
-                    } else {
-                        ratingContainer.style.display = 'none'; // Hide the rating section
-                        // Unset required and uncheck any selected rating if hiding
-                        ratingRadios.forEach(radio => {
-                            radio.required = false;
-                            radio.checked = false; // Optional: clear selection when hiding
-                        });
-                    }
-                } else {
-                    console.error('Could not find rating container for index:', questionIndex);
-                }
-            }
-        });
-
-        // Initial check in case a value is pre-selected (e.g., browser back button)
-        // This might not be strictly necessary but can handle edge cases
-        const checkedRadio = fieldset.querySelector('input[type="radio"]:checked');
-        if (checkedRadio) {
-             const questionIndex = fieldset.getAttribute('data-question-index');
-             const ratingContainer = document.getElementById(`rating_container_${questionIndex}`);
-             const ratingRadios = ratingContainer ? ratingContainer.querySelectorAll('input[type="radio"]') : [];
-
-             if (ratingContainer) {
-                 if (checkedRadio.value === 'Stereotype') {
-                     ratingContainer.style.display = 'block';
-                     ratingRadios.forEach(radio => radio.required = true);
-                 } else {
-                     ratingContainer.style.display = 'none';
-                     ratingRadios.forEach(radio => radio.required = false);
-                 }
-             }
-        }
-    });
-
-    // --- Optional: Client-side Form Validation on Submit ---
-    const quizForm = document.getElementById('quiz-form');
-    if (quizForm) {
-        quizForm.addEventListener('submit', function(event) {
-            let firstErrorElement = null; // To focus on the first error
-
-            // Re-check all annotation options (HTML required should handle this, but good failsafe)
-            annotationFieldsets.forEach(fieldset => {
-                const questionIndex = fieldset.getAttribute('data-question-index');
-                const radios = fieldset.querySelectorAll('input[type="radio"]');
-                const isSelected = Array.from(radios).some(radio => radio.checked);
-                if (!isSelected) {
-                    console.warn(`Annotation missing for question index ${questionIndex}`);
-                    if (!firstErrorElement) firstErrorElement = fieldset;
-                    // Optionally add visual error indication here
-                }
-            });
-
-            // Check required offensiveness ratings *only* for visible sections
-            const visibleRatingContainers = document.querySelectorAll('.offensiveness-rating-container[style*="display: block"]');
-            visibleRatingContainers.forEach(container => {
-                const radios = container.querySelectorAll('input[type="radio"]');
-                const isSelected = Array.from(radios).some(radio => radio.checked);
-                if (!isSelected) {
-                     console.warn(`Offensiveness rating missing for visible section: ${container.id}`);
-                     event.preventDefault(); // Prevent submission
-                     alert('Please provide an offensiveness rating for all items you marked as "Stereotype".');
-                     if (!firstErrorElement) firstErrorElement = container;
-                     // Optionally add visual error indication here
-                }
-            });
-
-             // If we found an error and prevented submission, focus the first element with an issue
-             if (event.defaultPrevented && firstErrorElement) {
-                 firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                 // Maybe add a temporary highlight to the element
-                 firstErrorElement.style.outline = '2px solid red';
-                 setTimeout(() => { firstErrorElement.style.outline = ''; }, 3000);
-             }
+    function syncRating(item) {
+        const isStereotype = selectedAnswer(item)?.value === 'Stereotype';
+        const container = item.querySelector('.offensiveness-rating-container');
+        container.hidden = !isStereotype;
+        container.querySelectorAll('input').forEach(input => {
+            input.required = isStereotype;
+            input.disabled = !isStereotype;
+            if (!isStereotype) input.checked = false;
         });
     }
 
-}); // End of DOMContentLoaded
+    function validate(item, focus = true) {
+        const answer = selectedAnswer(item);
+        const missingRating = answer?.value === 'Stereotype' && !selectedRating(item);
+        const error = errorFor(item);
+        error.textContent = !answer ? 'Choose Yes, No, or Not sure to continue.' :
+            missingRating ? 'Choose an offensiveness rating from 0 to 5 to continue.' : '';
+        error.hidden = !error.textContent;
+        if (error.textContent && focus) {
+            const target = !answer ? item.querySelector('.annotation-options input') :
+                item.querySelector('.rating-options input');
+            target.focus();
+        }
+        return !error.textContent;
+    }
+
+    function updateProgress() {
+        const completed = items.filter(item => selectedAnswer(item) &&
+            (selectedAnswer(item).value !== 'Stereotype' || selectedRating(item))).length;
+        progressLabel.textContent = current === items.length ?
+            `Review · ${completed} of ${items.length} groups answered` :
+            `Group ${current + 1} of ${items.length} · ${completed} answered`;
+        progressBar.value = completed;
+    }
+
+    function buildReview() {
+        reviewList.replaceChildren();
+        items.forEach((item, index) => {
+            const entry = document.createElement('li');
+            const heading = document.createElement('strong');
+            heading.textContent = item.querySelector('h2').textContent;
+            const answer = document.createElement('p');
+            answer.textContent = labels[selectedAnswer(item)?.value] || 'Unanswered';
+            if (selectedAnswer(item)?.value === 'Stereotype') {
+                answer.textContent += ` · Offensiveness: ${selectedRating(item)?.value ?? 'Unanswered'}/5`;
+            }
+            const edit = document.createElement('button');
+            edit.type = 'button';
+            edit.className = 'secondary-button';
+            edit.textContent = 'Edit';
+            edit.setAttribute('aria-label', `Edit answer for ${heading.textContent}`);
+            edit.addEventListener('click', () => {
+                editing = true;
+                show(index);
+            });
+            entry.append(heading, answer, edit);
+            reviewList.append(entry);
+        });
+    }
+
+    function show(index, focus = true) {
+        current = index;
+        const reviewing = index === items.length;
+        items.forEach((item, itemIndex) => item.hidden = itemIndex !== index);
+        review.hidden = !reviewing;
+        submit.hidden = !reviewing;
+        previous.textContent = editing ? 'Back to review' : 'Back';
+        previous.disabled = index === 0 && !editing;
+        next.hidden = reviewing;
+        next.textContent = editing ? 'Return to review' :
+            index === items.length - 1 ? 'Review answers' : 'Next';
+        if (reviewing) buildReview();
+        updateProgress();
+        if (focus) (reviewing ? document.getElementById('review-title') :
+            items[index].querySelector('h2')).focus();
+    }
+
+    items.forEach(item => {
+        item.querySelector('.rating-fallback').hidden = true;
+        syncRating(item);
+        item.addEventListener('change', event => {
+            if (event.target.closest('.annotation-options')) syncRating(item);
+            if (!errorFor(item).hidden) validate(item, false);
+            updateProgress();
+        });
+        item.hidden = true;
+    });
+
+    // Custom validation makes hidden questions reachable and focuses their missing answer.
+    form.noValidate = true;
+    form.hidden = true;
+    begin.hidden = false;
+    begin.addEventListener('click', () => {
+        practice.hidden = true;
+        document.getElementById('survey-guide').open = false;
+        form.hidden = false;
+        navigation.hidden = false;
+        progress.hidden = false;
+        show(0);
+    });
+    next.addEventListener('click', () => {
+        if (!validate(items[current])) return;
+        const destination = editing ? items.length : current + 1;
+        editing = false;
+        show(destination);
+    });
+    previous.addEventListener('click', () => {
+        const destination = editing ? items.length : current - 1;
+        editing = false;
+        show(Math.max(0, destination));
+    });
+    form.addEventListener('submit', event => {
+        // Enter inside the survey must not bypass the remaining questions or review.
+        if (current !== items.length) {
+            event.preventDefault();
+            next.click();
+            return;
+        }
+        const invalid = items.findIndex(item => !validate(item, false));
+        if (invalid !== -1) {
+            event.preventDefault();
+            editing = true;
+            show(invalid, false);
+            validate(items[invalid]);
+        }
+    });
+    // Reconcile restored radio values when returning through browser history.
+    window.addEventListener('pageshow', () => {
+        items.forEach(syncRating);
+        if (!form.hidden) show(current, false);
+    });
+});

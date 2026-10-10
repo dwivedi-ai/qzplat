@@ -5,7 +5,7 @@
 
 {% block content %}
     <h1>Stereotype Perception Survey</h1>
-    <p>Please provide some basic information to begin. Your anonymous responses will be used to create a dataset for research purposes.</p>
+    <p>Please provide some basic information to begin. Your responses will be used to create a dataset for research purposes.</p>
 
     {# Display flashed messages (already in layout.html but good practice here too) #}
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -28,6 +28,7 @@
         <div class="form-group">
             {# Assuming this is for the first project, use 'user_state' #}
             <label for="user_state">Your State/UT:</label>
+            <p class="question-hint">Choose the state/UT you identify as being from. You will answer about stereotypes associated with that place.</p>
             <select id="user_state" name="user_state" required>
                 <option value="" disabled {% if not form_data.get('user_state') %}selected{% endif %}>-- Select your State/UT --</option>
                 {% if states == ['Error: State Data Load Failed'] %} {# Corrected check #}
@@ -68,6 +69,6 @@
              {# Removed 'Other' and 'Prefer not to say' divs #}
         </div>
 
-        <button type="submit">Start Quiz</button>
+        <button type="submit">Continue to survey</button>
     </form>
 {% endblock %}
