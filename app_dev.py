@@ -2,6 +2,7 @@
 
 import os
 import csv
+from survey_descriptions import load_descriptions
 import io # Needed for in-memory CSV generation
 import mysql.connector # Use MySQL connector
 from mysql.connector import Error as MySQLError # Import specific error class
@@ -137,6 +138,10 @@ def load_stereotype_data(relative_filepath=CSV_FILE_PATH):
                     subsets = sorted([s.strip() for s in subsets_str.split(',') if s.strip()]) # Process subsets
                     stereotype_data.append({'state': state, 'category': category, 'superset': superset, 'subsets': subsets})
                 except Exception as row_err: print(f"Error processing CSV row {i+1}: {row_err}"); continue
+        keys = {(item["state"], item["category"], item["superset"]) for item in stereotype_data}
+        descriptions = load_descriptions(os.path.join(base_dir, "data", "survey_descriptions.csv"), keys)
+        for item in stereotype_data:
+            item["description"] = descriptions[(item["state"], item["category"], item["superset"])]
         print(f"Successfully loaded {len(stereotype_data)} stereotype entries from {full_filepath}")
         return stereotype_data
     except FileNotFoundError: print(f"FATAL ERROR: CSV file not found at {full_filepath}."); return []

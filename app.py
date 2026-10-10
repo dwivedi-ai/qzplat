@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import os
 import csv
+from survey_descriptions import load_descriptions
 import io
 import mysql.connector
 from mysql.connector import Error as MySQLError
@@ -151,7 +152,12 @@ def load_stereotype_data(relative_filepath=CSV_FILE_PATH):
                     subsets = sorted([s.strip() for s in subsets_str.split(',') if s.strip()])
                     stereotype_data.append({'state': state, 'category': category, 'superset': superset, 'subsets': subsets})
                 except Exception as row_err: app.logger.warning(f"Error processing CSV row {i+1}: {row_err}")
-            app.logger.info(f"Loaded {len(stereotype_data)} stereotype entries.")
+            description_path = os.path.join(current_app.root_path, "data", "survey_descriptions.csv")
+            keys = {(item["state"], item["category"], item["superset"]) for item in stereotype_data}
+            descriptions = load_descriptions(description_path, keys)
+            for item in stereotype_data:
+                item["description"] = descriptions[(item["state"], item["category"], item["superset"])]
+            app.logger.info(f"Loaded {len(stereotype_data)} stereotype entries with display explanations.")
             return stereotype_data
     except FileNotFoundError as e: app.logger.critical(f"FATAL: Stereotype CSV not found: {e}"); return []
     except ValueError as ve: app.logger.critical(f"FATAL: Error processing stereotype CSV: {ve}"); return []

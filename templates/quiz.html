@@ -12,7 +12,7 @@
         <p>A <strong>stereotype</strong> is a generalised idea about people from a particular place. It can be positive, negative, or neutral, and it does not describe everyone.</p>
         <p>For each group, tell us whether you recognise it as a stereotype associated with people from {{ user_info.state }}. You might have encountered it in conversations, jokes, media, or online.</p>
         <p><strong>Recognising a stereotype does not mean you agree with it or think it is true.</strong> A stereotype can also be familiar to you without being offensive.</p>
-        <p>The associated terms explain each group. Give one answer for the group overall. If you cannot confidently judge the group, choose “Not sure.”</p>
+        <p>Each explanation clarifies the group label. Read it together with the associated terms, which may include different ideas. Give one answer for the group overall. If you cannot confidently judge the group, choose “Not sure.”</p>
     </details>
 
     {% if quiz_items %}
@@ -46,6 +46,10 @@
             <section class="quiz-item" id="item-{{ index }}" aria-labelledby="title-{{ index }}">
                 <p class="eyebrow">{{ item.category }} · Group {{ loop.index }} of {{ quiz_items|length }}</p>
                 <h2 id="title-{{ index }}" tabindex="-1">{{ item.superset }}</h2>
+                <div class="group-explanation" id="explanation-{{ index }}">
+                    <p class="eyebrow">Understanding this group</p>
+                    <p>{{ item.description }}</p>
+                </div>
                 <input type="hidden" name="superset_{{ index }}" value="{{ item.superset }}">
                 <input type="hidden" name="category_{{ index }}" value="{{ item.category }}">
                 {% if item.subsets %}
@@ -55,7 +59,7 @@
                     <p class="muted">Consider the group overall when answering.</p>
                 </div>
                 {% endif %}
-                <fieldset class="annotation-options" data-question-index="{{ index }}">
+                <fieldset class="annotation-options" data-question-index="{{ index }}" aria-describedby="explanation-{{ index }}{% if item.subsets %} context-{{ index }}{% endif %}">
                     <legend>Do you recognise “{{ item.superset }}” as a stereotype associated with people from {{ user_info.state }}?</legend>
                     <p class="question-hint">Choose one answer. Recognising it does not mean you believe it is true.</p>
                     <label class="answer-card" for="anno_s_{{ index }}">

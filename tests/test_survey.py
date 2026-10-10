@@ -89,6 +89,7 @@ class SurveyFlowTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200)
                 expected = sum(item['state'] == state for item in survey.ALL_STEREOTYPE_DATA)
                 self.assertEqual(response.data.count(b'class="quiz-item"'), expected)
+                self.assertEqual(response.data.count(b'class="group-explanation"'), expected)
                 self.assertIn(b'A quick example', response.data)
                 self.assertIn(b'Review your answers', response.data)
 

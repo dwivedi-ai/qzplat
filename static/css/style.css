@@ -312,3 +312,6 @@ h2[tabindex="-1"]:focus { outline: none; }
     .answer-card { padding: 14px 12px; }
     .rating-options { gap: 5px; }
 }
+
+.group-explanation { margin: 12px 0 18px; padding: 12px 16px; border-left: 3px solid #17646b; background: #f5f9f8; }
+.group-explanation p { margin: 4px 0; }

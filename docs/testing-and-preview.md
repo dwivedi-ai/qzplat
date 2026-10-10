@@ -67,9 +67,6 @@ docker stop qzsql-survey-test
 
 ## Public deployment status
 
-The previous deployment URL discovered through the repository's GitHub deployment
-records, https://web-production-cdea.up.railway.app, returned Railway's fallback
-404 on 2026-10-10. The database hostname configured in the local .env did not
-resolve. No Railway deployment credentials were configured on this machine.
-A public deployment requires the current hosting destination/access and working
-production database configuration. The local preview is not a public deployment.
+Public hosting has not been configured for this update. Railway is excluded as a
+deployment destination. The local preview is not a public deployment. A future
+public deployment needs a chosen host and working production database settings.

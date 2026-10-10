@@ -79,3 +79,33 @@ The later full application test used an isolated MySQL 8.4 database. Integration
 and real-browser submissions, CSV exports, and aggregation passed. All generated
 response rows were deleted and the preview database was confirmed empty. See
 [testing and preview](testing-and-preview.md) for scope, commands, and hosting status.
+
+## Group explanation update: prepared 2026-10-10
+
+The survey now displays a plain-language explanation beneath each original group
+label. All 762 explanations live in data/survey_descriptions.csv, keyed by the
+exact State, Category, and Superset from data/stereotypes.csv. This separate file
+can be reviewed or edited without changing research definitions. Both app.py and
+app_dev.py load these explanations for display. The loader requires complete,
+unique coverage and rejects missing, duplicate, empty, or unexpected entries.
+
+The explanations describe the image being judged rather than assert that it is
+true of people from a place. Short explanations clarify the group label; the
+original associated terms remain visible and are still part of the judgment.
+For mixed groups, some explanations explicitly distinguish the included ideas,
+such as Marathi cultural pride versus hostility towards North Indians, and
+Gujarat's careful spending versus being described as stingy. State-specific
+examples distinguish Kerala's migrant-work association from Bihar's farming and
+manual-labour association under the same Hardworking label.
+
+The exact participant-facing definitions and prose are versioned in the display
+CSV. They are not hidden form values and are not stored in response rows or CSV
+exports. Original group labels, categories, state names, associated terms,
+annotation values, offensiveness ratings, and aggregation are unchanged. Explain
+the full original group when interpreting results; associated terms are not all
+synonyms and should not be treated as separate participant judgments.
+
+Coverage checks and the full Flask/MySQL integration suite passed with the new
+explanations. Original definitions and schema were also checked to be unchanged.
+Any collection using this wording should record its start date and commit,
+and compare it with earlier wording when interpreting continuation data.
